@@ -53,14 +53,12 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
 
     public function savePolicyLine($ptype, array $rule)
     {
-        $col['ptype'] = $ptype;
+        curl_setopt($this->curl, CURLOPT_URL, $this->server.'/'.$this->version.'/'.$this->KV_PUT);
         foreach ($rule as $key => $value)
         {
-            $col['v'.strval($key).''] = base64_encode($value);
+            curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key'=>base64_encode($key), 'value'=>base64_encode($ptype).'/',base64_encode($value)]));
+            curl_exec($this->curl);
         }
-        curl_setopt($this->curl, CURLOPT_URL, $this->server.'/'.$this->version.'/'.$this->KV_PUT);
-        curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode($col));
-        curl_exec($this->curl);
     }
 
     /**
@@ -71,7 +69,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
     public function loadPolicy(Model $model): void
     {
         curl_setopt($this->curl, CURLOPT_URL, $this->server.'/'.$this->version.'/'.$this->KV_RANGE);
-        curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['']));
+        curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key'=>base64_encode('ptype')]));
         $rows = json_decode(curl_exec($this->curl));
 
         foreach ($rows as $row)
@@ -126,15 +124,12 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
      */
     public function removePolicy(string $sec, string $ptype, array $rule): void
     {
-        $where['ptype'] = $ptype;
+        curl_setopt($this->curl, CURLOPT_URL, $this->server.'/'.$this->version.'/'.$this->KV_DELETERANGE);
         foreach ($rule as $key => $value)
         {
-            $where['v'.strval($key)] = base64_encode($value);
+            curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key'=>base64_encode($key)]));
+            curl_exec($this->curl);
         }
-
-        curl_setopt($this->curl, CURLOPT_URL, $this->server.'/'.$this->version.'/'.$this->KV_DELETERANGE);
-        curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode($where));
-        curl_exec($this->curl);
     }
 
     public function removePolicies(string $sec, string $ptype, array $rules): void
