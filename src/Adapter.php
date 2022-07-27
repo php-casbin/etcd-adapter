@@ -53,14 +53,25 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
 
     public function savePolicyLine($ptype, array $rule)
     {
-        $col['ptype'] = $ptype;
-        foreach ($rule as $key => $value)
+        if ($this->version == 'v3')
         {
-            $col['v'.strval($key).''] = base64_encode($value);
+            curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/' . $this->KV_PUT);
+            foreach ($rule as $key => $value)
+            {
+                curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key' => base64_encode($key), 'value' => base64_encode($ptype) . '/', base64_encode($value)]));
+                curl_exec($this->curl);
+            }
         }
-        curl_setopt($this->curl, CURLOPT_URL, $this->server.'/'.$this->version.'/'.$this->KV_PUT);
-        curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode($col));
-        curl_exec($this->curl);
+        else if ($this->version == 'v2')
+        {
+            curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, 'PUT');
+            foreach ($rule as $key => $value)
+            {
+                curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/keys'. '/' . $key);
+                curl_setopt($this->curl, CURLOPT_POSTFIELDS, 'value=' . $value);
+                curl_exec($this->curl);
+            }
+        }
     }
 
     /**
@@ -70,10 +81,17 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
      */
     public function loadPolicy(Model $model): void
     {
-        curl_setopt($this->curl, CURLOPT_URL, $this->server.'/'.$this->version.'/'.$this->KV_RANGE);
-        curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['']));
-        $rows = json_decode(curl_exec($this->curl));
-
+        if ($this->version == 'v3')
+        {
+            curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/' . $this->KV_RANGE);
+            curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key' => base64_encode('ptype')]));
+            $rows = json_decode(curl_exec($this->curl));
+        }
+        else if ($this->version == 'v2')
+        {
+            curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/keys'. '/ptype');
+            $rows = json_decode(curl_exec($this->curl));
+        }
         foreach ($rows as $row)
         {
             $this->loadPolicyLine($row, $model);
@@ -126,15 +144,24 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
      */
     public function removePolicy(string $sec, string $ptype, array $rule): void
     {
-        $where['ptype'] = $ptype;
-        foreach ($rule as $key => $value)
+        if ($this->version == 'v3')
         {
-            $where['v'.strval($key)] = base64_encode($value);
+            curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/' . $this->KV_DELETERANGE);
+            foreach ($rule as $key => $value)
+            {
+                curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key' => base64_encode($key)]));
+                curl_exec($this->curl);
+            }
         }
-
-        curl_setopt($this->curl, CURLOPT_URL, $this->server.'/'.$this->version.'/'.$this->KV_DELETERANGE);
-        curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode($where));
-        curl_exec($this->curl);
+        else if ($this->version == 'v2')
+        {
+            curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, 'DELETE');
+            foreach ($rule as $key => $value)
+            {
+                curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/keys'. '/' . $key);
+                curl_exec($this->curl);
+            }
+        }
     }
 
     public function removePolicies(string $sec, string $ptype, array $rules): void
@@ -165,7 +192,8 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
     {
         $where['ptype'] = $ptype;
         $condition[] = 'ptype = :ptype';
-
+        curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/' . $this->KV_PUT);
+        
         foreach ($oldRule as $key => $value)
         {
             $placeholder = "w" . strval($key);
@@ -181,9 +209,18 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
             $update[] = 'v' . strval($key) . ' = :' . $placeholder;
         }
         
-        curl_setopt($this->curl, CURLOPT_URL, $this->server.'/'.$this->version.'/'.$this->KV_PUT);
-        curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(array_merge($updateValue, $where)));
-        curl_exec($this->curl);
+        if ($this->version == 'v3')
+        {
+            curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/' . $this->KV_PUT);
+            curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key'=>base64_encode($key), 'value'=>base64_encode($value)]));
+            curl_exec($this->curl);
+        }
+        else if ($this->version == 'v2')
+        {
+            curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/keys'. '/' . $key);
+            curl_setopt($this->curl, CURLOPT_POSTFIELDS, 'value=' . $value);
+            curl_exec($this->curl);
+        }
     }
 
     /**
