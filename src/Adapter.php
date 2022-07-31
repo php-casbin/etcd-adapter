@@ -32,38 +32,21 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
     {
         $this->server = $server;
         $this->version = $version;
-
-        if ($this->curl = curl_init())
-        {
-            curl_setopt($this->curl, CURLOPT_POST, 1);
-            curl_setopt($this->curl, CURLOPT_CONNECTTIMEOUT, 15);
-            curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($this->curl, CURLOPT_FOLLOWLOCATION, true);
-        }
-        else
-        {
-            throw new \RuntimeException("Create curl handle ERROR");
-        }
-    }
-
-    public function __destruct()
-    {
-        curl_close($this->curl);
     }
 
     public function savePolicyLine($ptype, array $rule)
     {
-        if ($this->version == 'v3')
+        if ($this->version === 'v3')
         {
-            curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/' . $this->KV_PUT);
-            foreach ($rule as $key => $value)
-            {
-                curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key' => base64_encode($key), 'value' => base64_encode($ptype) . '/', base64_encode($value)]));
-                curl_exec($this->curl);
-            }
+            $this->curl = curl_init($this->server . '/' . $this->version . '/' . $this->KV_PUT);
+            $value = implode('|', $rule);
+            curl_setopt($this->curl, CURLOPT_POST, true);
+            curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key' => base64_encode($value), 'value' => base64_encode($ptype)]));
+            curl_exec($this->curl);
         }
-        else if ($this->version == 'v2')
+        else if ($this->version === 'v2')
         {
+            $this->curl = curl_init();
             curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, 'PUT');
             foreach ($rule as $key => $value)
             {
@@ -72,6 +55,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
                 curl_exec($this->curl);
             }
         }
+        curl_close($this->curl);
     }
 
     /**
@@ -81,21 +65,23 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
      */
     public function loadPolicy(Model $model): void
     {
-        if ($this->version == 'v3')
+        if ($this->version === 'v3')
         {
-            curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/' . $this->KV_RANGE);
-            curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key' => base64_encode('ptype')]));
+            $this->curl = curl_init($this->server . '/' . $this->version . '/' . $this->KV_RANGE);
+            curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key' => base64_encode("\0")]));
+            curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
             $rows = json_decode(curl_exec($this->curl));
         }
-        else if ($this->version == 'v2')
+        else if ($this->version === 'v2')
         {
-            curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/keys'. '/ptype');
+            $this->curl = curl_init();
             $rows = json_decode(curl_exec($this->curl));
         }
         foreach ($rows as $row)
         {
-            $this->loadPolicyLine($row, $model);
+            $this->loadPolicyLine($row->kvs[0]->value, $model);
         }
+        curl_close($this->curl);
     }
 
     /**
@@ -144,17 +130,16 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
      */
     public function removePolicy(string $sec, string $ptype, array $rule): void
     {
-        if ($this->version == 'v3')
+        if ($this->version === 'v3')
         {
-            curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/' . $this->KV_DELETERANGE);
-            foreach ($rule as $key => $value)
-            {
-                curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key' => base64_encode($key)]));
-                curl_exec($this->curl);
-            }
+            $this->curl = curl_init($this->server . '/' . $this->version . '/' . $this->KV_DELETERANGE);
+            $value = implode('|', $rule);
+            curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key' => base64_encode($value)]));
+            curl_exec($this->curl);
         }
-        else if ($this->version == 'v2')
+        else if ($this->version === 'v2')
         {
+            $this->curl = curl_init();
             curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, 'DELETE');
             foreach ($rule as $key => $value)
             {
@@ -162,6 +147,7 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
                 curl_exec($this->curl);
             }
         }
+        curl_close($this->curl);
     }
 
     public function removePolicies(string $sec, string $ptype, array $rules): void
@@ -209,13 +195,13 @@ class Adapter implements AdapterContract, FilteredAdapterContract, BatchAdapterC
             $update[] = 'v' . strval($key) . ' = :' . $placeholder;
         }
         
-        if ($this->version == 'v3')
+        if ($this->version === 'v3')
         {
             curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/' . $this->KV_PUT);
             curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode(['key'=>base64_encode($key), 'value'=>base64_encode($value)]));
             curl_exec($this->curl);
         }
-        else if ($this->version == 'v2')
+        else if ($this->version === 'v2')
         {
             curl_setopt($this->curl, CURLOPT_URL, $this->server . '/' . $this->version . '/keys'. '/' . $key);
             curl_setopt($this->curl, CURLOPT_POSTFIELDS, 'value=' . $value);
