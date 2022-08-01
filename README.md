@@ -1,7 +1,5 @@
 # ETCD adapter for php-casbin
 
-[![License](https://poser.pugx.org/casbin/database-adapter/license)](https://packagist.org/packages/casbin/database-adapter)
-
 ETCD adapter for [PHP-Casbin](https://github.com/php-casbin/php-casbin).
 
 ### Usage
