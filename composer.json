@@ -1,0 +1,23 @@
+{
+    "name": "casbin/etcd-adapter",
+    "keywords": ["casbin", "etcd", "casbin-adapter"],
+    "description": "Etcd adapter for php-casbin. ",
+    "license": "Apache-2.0",
+    "require": {
+        "casbin/casbin": "^3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~7.0|~8.0|~9.0",
+        "php-coveralls/php-coveralls": "^2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "CasbinAdapter\\Etcd\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "CasbinAdapter\\Etcd\\Tests\\": "tests/"
+        }
+    }
+}
